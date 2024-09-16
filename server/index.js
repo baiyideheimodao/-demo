@@ -1,7 +1,7 @@
-import u from 'uwebsockets.js';
+import u from 'uWebSockets.js';
 import protobuf from 'protobufjs'
 import { config } from './config.js';
-
+console.log(config)
 let stringMessage = protobuf.loadSync('../frame/awesome.proto').lookupType('awesomepackage.stringMessage');
 // stringMessage
 let video;
@@ -9,8 +9,11 @@ let coordinate = false;
 let lastF = false;
 let track = false;
 let websocket = new Map();
-u.App()
-.addServerName("marketing.vrmage.com")
+u.SSLApp({
+  key_file_name:'/usr/local/nginx/conf/rtc.haomanchat.com_nginx/rtc.haomanchat.com.key',
+  cert_file_name:'/usr/local/nginx/conf/rtc.haomanchat.com_nginx/rtc.haomanchat.com_bundle.pem'
+})
+//.addServerName("rtc.haomanchat.com")
 .ws('/*', {
     //设置socket长度
     maxPayloadLength: 51200,
@@ -28,7 +31,7 @@ u.App()
         switch (data.type) {
             case 'locate':
                 coordinate = data.locate;
-                // console.log('data:', data, coordinate);
+                console.log('data:', data);
                 websocket.get('frame').send(message,isBinary);
                 break;
             case 'id':
@@ -47,20 +50,20 @@ u.App()
                 console.log('ice');
                 websocket.get('choose').send(message,isBinary);
                 break;
+            case 'size':
+                websocket.get('choose').send(message,isBinary);
+                break;
             default:
                 break;
         }
     }
-}).get('/*', (res, req) => {
-    /* It does Http as well */
-    console.log(res);
-    res.writeStatus('200 OK').writeHeader('IsExample', 'Yes')
-        .end(video);
-}).listen(config.socketPort, (listenSocket) => {
-    if (listenSocket) {
-        console.log(`Listening to port ${config.socketPort}`);
-    }
-});
-
-console.log(u.App().addServerName("localhost")
-.ws)
+    }).get('/*', (res, req) => {
+        /* It does Http as well */
+        console.log(res);
+        res.writeStatus('200 OK').writeHeader('IsExample', 'Yes')
+            .end(video);
+    }).listen(config.socketPort, (listenSocket) => {
+        if (listenSocket) {
+            console.log(`Listening to port ${config.socketPort}`);
+        }
+    });

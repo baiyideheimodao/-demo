@@ -8,13 +8,14 @@ let draw_status = END;
 let stringMessage;
 let p;
 let sdp;
-let socket = new WebSocket('ws://localhost:5002');
+let socket = new WebSocket('wss://rtc.haomanchat.com:5004')
 let video = document.getElementsByTagName('video')[0];
 const localvideo = document.createElement('video');
 localvideo.autoplay = true;
 localvideo.muted = true;
-let width = screen.width;
-let height = screen.height;
+let width, height;
+// let width = screen.width;
+// let height = screen.height;
 let locate;
 
 
@@ -69,7 +70,7 @@ class trackNow {
         let trackBox = null;
 
         const FPS = 30;
-        let processVideo = ()=>{
+        let processVideo = () => {
             try {
                 // if (!streaming) {
                 //     // clean and stop.
@@ -92,7 +93,6 @@ class trackNow {
                 point1 = Object.values(pts[0]);
                 point2 = Object.values(pts[2]);
                 blueprintSet.set(sym, [point1, point2]);
-                console.log('serial',this.serial)
                 let message = stringMessage.create({
                     type: 'locate',
                     shape: paintShape,
@@ -130,11 +130,16 @@ let canvas = document.getElementById('canvas');
 let context = canvas.getContext('2d');
 let img = new Image();
 let getpos = procedure => (evt) => {
-    let x = evt.clientX;
-    let y = evt.clientY;
-    let rect = canvas.getBoundingClientRect();
-    x -= rect.left;
-    y -= rect.top;
+    let x, y;
+    if (procedure !== END) {
+        x = evt.clientX || evt.touches[0].pageX;
+        y = evt.clientY || evt.touches[0].pageY;
+        if (x && y) {
+            let rect = canvas.getBoundingClientRect();
+            x -= rect.left;
+            y -= rect.top;
+        }
+    }
     switch (procedure) {
         case START:
             draw_status = START;
@@ -165,16 +170,37 @@ let getpos = procedure => (evt) => {
     }
     return [x, y];
 }
+
 canvas.onmousedown = getpos(START)
 canvas.onmousemove = getpos(HALFWAY);
 canvas.onmouseup = getpos(END);
 
-let pc = new RTCPeerConnection();
+//添加触摸屏事件
+canvas.addEventListener('touchstart', getpos(START), false);
+canvas.addEventListener('touchend', getpos(END), false);
+canvas.addEventListener('touchmove', getpos(HALFWAY), false);
+
+//RTCPeerConnection = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+if (!RTCPeerConnection) {
+    alert('当前浏览器不支持webRTC，请使用chrome浏览器')
+}
+var configuration = { iceServers: [{
+	urls: "stun:119.45.227.92:3478",
+	username: "baiyideheimodao",
+	credential: "zhuxingyu"
+}]
+};
+let pc = new RTCPeerConnection(configuration);
 
 socket.onmessage = async function (event) {
     let message = stringMessage.decode(new Uint8Array(event.data));
     switch (message.type) {
-
+        case 'size':
+            width = message.width;
+            height = message.height;
+            video.width = width;
+            video.height = height;
+            break;
         case 'sdp':
             console.log('sdp', message);
             sdp = message.offer;
@@ -208,8 +234,7 @@ function takepicture(video) {
             canvas.width = width;
             canvas.height = height;
             context.drawImage(video, 0, 0, width, height);
-            console.log(blueprintSet)
-            point1 && draw(blueprintSet);
+            point1 && draw(blueprintSet)
             context.stroke();
         }
     }
@@ -219,7 +244,6 @@ pc.ontrack = event => {
     try {
         video.srcObject = event.streams[0];
         remoteStream = event.streams[0];
-        console.log(video);
         video.onloadedmetadata = function (e) {
             video.play();
             video.muted = true
@@ -231,6 +255,7 @@ pc.ontrack = event => {
         console.log(error)
     }
 }
+
 
 
 const { close } = pc;
@@ -250,7 +275,7 @@ let button = Array.from(
             draw_status = START;
             paintShape = element.id;
             sym = Symbol(paintShape);
-            console.log(sym,paintShape);
+            console.log(sym, paintShape);
         }
     })
 

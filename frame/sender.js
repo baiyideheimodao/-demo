@@ -9,7 +9,7 @@ let context = {};
 let draw_status = END;
 let p = [];
 let list = new Set;
-let socket = new WebSocket(`ws://localhost:5002`)
+let socket = new WebSocket(`wss://rtc.haomanchat.com:5004`)
 let video = document.getElementsByTagName('video')[0];
 socket.binaryType = 'arraybuffer';
 
@@ -36,6 +36,8 @@ socket.onopen = function () {
 		iceMessage = root.lookupType("awesomepackage.ice");
 		let frameid = stringMessage.create({
 			type: 'id',
+			width,
+			height,
 			message: 'frame'
 		})
 		socket.binaryType = 'arraybuffer';
@@ -52,30 +54,43 @@ function takepicture(video) {
 			canvas.width = width;
 			canvas.height = height;
 			context.drawImage(video, 0, 0, width, height);
-			// point1 && 
+			// point &&
 			draw(blueprintSet)
-			// oval(point1, point2);
 			context.stroke();
 		}
 	}
 }
 
 // navigator.getMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || window.navigator.mediaDevices.getUserMedia);
-var pc = new RTCPeerConnection();
+var configuration = { iceServers: [{
+	urls: "stun:119.45.227.92:3478",
+	username: "baiyideheimodao",
+	credential: "zhuxingyu"
+}]
+};
+var pc = new RTCPeerConnection(configuration);
 /**
  * @param {RTCPeerConnection} PeerConnection
 */
 async function sendStream(PeerConnection) {
-	const localStream = await window.navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+	const localStream = await window.navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
 	video.srcObject = localStream;
 	video.onloadedmetadata = e => {
+		width = video.width = video.videoWidth;
+		height = video.height = video.videoHeight;
+		console.log(video.videoHeight,video.videoWidth)
+		let size = stringMessage.create({
+			type:'size',
+			width,
+			height
+		})
+		socket.send(stringMessage.encode(size).finish());
+		video.muted = true;
 		let promise = video.play();
 		if (promise !== undefined) {
 			promise.catch(error => {
-				// Auto-play was prevented
-			}).then(() => {
-				// Auto-play started
-			});
+				console.log(error)
+			}).then(() => console.log('ok'));
 		}
 		setInterval(takepicture(video), 1000 / 10)
 	}
@@ -111,7 +126,7 @@ async function sendStream(PeerConnection) {
 	socket.send(sdpbuffer);
 
 }
-
+//sendStream(pc);
 socket.onmessage = function (event) {
 	let message = stringMessage.decode(new Uint8Array(event.data));
 	switch (message.type) {
